@@ -5,10 +5,6 @@ const firebaseConfig = {
     storageBucket: "iris-tracker.appspot.com",
     messagingSenderId: "1024924014821",
     appId: "1:1024924014821:web:a9e14262f3b76fa32f1c0c",
-    clientId: '1024924014821-1qcohrsru7muo299tmn02tqku9sht871.apps.googleusercontent.com',
-    discoveryDocs: [
-        'https://sheets.googleapis.com/$discovery/rest?version=v4',
-    ]
 }
 firebase.initializeApp(firebaseConfig)
 const auth = firebase.auth()
@@ -43,8 +39,25 @@ async function loadUser() {
 
 async function loadFormId() {
     try {
-        const res = await db.collection("config").doc("formEmbedId").get()
-        return res.data().value
+        return (await db.collection("config").doc("formEmbedId").get()).data()
+            .value
+    } catch (e) {
+        console.error(e)
+        alert(e.message)
+    }
+}
+
+async function loadSheet(key) {
+    try {
+        const sheetId = (
+            await db.collection("config").doc("sheetId").get()
+        ).data().value
+        const range = encodeURIComponent("A2:Z")
+        const key = firebaseConfig.apiKey
+        const rows = await fetch(`https://content-sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${key}`)
+            .then(res => res.json())
+            .then(json => json.values)
+        return { rows }
     } catch (e) {
         console.error(e)
         alert(e.message)
@@ -66,6 +79,9 @@ async function main() {
             `<iframe class="form" src="${url}">Loading…</iframe>`
         )
     }
+
+    const data = await loadSheet(token)
+    document.body.insertAdjacentHTML("afterbegin", `${JSON.stringify(data)}`)
 }
 
 void main()
