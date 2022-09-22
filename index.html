@@ -13,6 +13,7 @@
     <script defer src='main.js?v=1'></script>
 </head>
 <body>
-    <button onclick="firebase.auth().signOut(); location.reload();">Sign out and try a different account if you see nothing</button>
+    <button class="sign-out" onclick="firebase.auth().signOut(); location.reload();">Sign into a different account if you see nothing</button>
+    <div class="timers"></div>
 </body>
 </html>
