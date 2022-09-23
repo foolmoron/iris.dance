@@ -90,7 +90,8 @@ async function loadSheet(key) {
         // Stats
         const today = new Date().setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
-        const feedLatest = data.findLast((d) => d.feed)
+        const feedLatest5 = data.filter((d) => d.feed).slice(-5).reverse()
+        const feedLatest = feedLatest5[0]
         const feedCountToday = data.filter(
             (i) => i.feed && i.date > today
         ).length
@@ -123,7 +124,7 @@ async function loadSheet(key) {
         )
 
         return {
-            feedLatest,
+            feedLatest5,
             feedCountToday,
             feedCount24h,
             diaperWetLatestTime,
@@ -138,6 +139,22 @@ async function loadSheet(key) {
         console.error(e)
         alert(e.message)
     }
+}
+
+async function setupCountdownToFeeding(el, secs) {
+    const hours = Math.floor(secs / 3600)
+    const minutes = Math.floor((secs % 3600) / 60)
+    const seconds = secs % 60
+    el.textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
+        .toString()
+        .padStart(2, '0')}`
+    if (secs > 0) {
+        setTimeout(() => setupCountdownToFeeding(el, secs - 1), 1000)
+    }
+
+    const level = secs > 60 * 60 ? 'green' : secs > 60 * 15 ? 'orange' : 'red'
+    el.classList.remove('green', 'orange', 'red')
+    el.classList.add(level)
 }
 
 async function main() {
@@ -160,20 +177,38 @@ async function main() {
     const data = await loadSheet(token)
 
     // Render stats
+    const lastFewFeeds = data.feedLatest5
+        .map(
+            (i) =>
+                `${i.date.toLocaleString()} - ${[
+                    i.feed.left && 'Left',
+                    i.feed.right && 'Right',
+                    i.feed.bottle && 'Bottle',
+                ]
+                    .filter(Boolean)
+                    .join(', ')}`
+        )
+        .join('<br>')
     statsContainer.insertAdjacentHTML(
         'beforeend',
         `
         <h1>Time to next feeding</h1>
         <div class="row">
-            <p>${Math.floor(data.secondsToNextFeeding / 60)}:${
-            data.secondsToNextFeeding % 60
-        }</p>
+            <p class="next-feeding"></p>
         </div>
         <br>
         <h1>Feedings</h1>
         <div class="row">
-            <p>Latest<br><b>${data.feedLatest?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday}</b></p>
+            <p>Last few</p>
+        </div>
+        <div class="row" style="text-align: left;">
+            <b>${lastFewFeeds}</b>
+        </div>
+        <br>
+        <div class="row">
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.feedCountToday
+        }</b></p>
             <p>Last 24h<br><b>${data.feedCount24h}</b></p>
         </div>
         <br>
@@ -198,6 +233,10 @@ async function main() {
     )
 
     // Start countdown to next feeding
+    await setupCountdownToFeeding(
+        document.querySelector('.next-feeding'),
+        data.secondsToNextFeeding
+    )
 }
 
 void main()
