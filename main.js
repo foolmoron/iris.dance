@@ -10,7 +10,9 @@ firebase.initializeApp(firebaseConfig)
 const auth = firebase.auth()
 const db = firebase.firestore()
 
-const timersContainer = document.querySelector('.timers')
+const FIRST_HOUR_OF_DAY = 7
+
+const statsContainer = document.querySelector('.stats')
 
 async function loadUser() {
     const provider = new firebase.auth.GoogleAuthProvider()
@@ -65,7 +67,7 @@ async function loadSheet(key) {
 
         // Parse
         const data = rows.map((row) => ({
-            datetime: new Date((row[1] || row[0]).replace('/0022 ', '/2022 ')),
+            date: new Date((row[1] || row[0]).replace('/0022 ', '/2022 ')),
             feed:
                 row[2] || row[3] || row[4]
                     ? {
@@ -83,31 +85,31 @@ async function loadSheet(key) {
                     : undefined,
             notes: row[7],
         }))
-        data.sort((a, b) => a.datetime - b.datetime)
+        data.sort((a, b) => a.date - b.date)
 
         // Stats
-        const sevenAM = new Date().setHours(7, 0, 0, 0)
+        const today = new Date().setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
         const feedLatest = data.findLast((d) => d.feed)
         const feedCountToday = data.filter(
-            (d) => d.feed && d.datetime > sevenAM
+            (i) => i.feed && i.date > today
         ).length
         const feedCount24h = data.filter(
-            (d) => d.feed && d.datetime > past24h
+            (i) => i.feed && i.date > past24h
         ).length
-        const diaperWetLatestTime = data.findLast((d) => d.diaper?.wet)
+        const diaperWetLatestTime = data.findLast((i) => i.diaper?.wet)
         const diaperWetCountToday = data.filter(
-            (d) => d.diaper?.wet && d.datetime > sevenAM
+            (i) => i.diaper?.wet && i.date > today
         ).length
         const diaperWetCount24h = data.filter(
-            (d) => d.diaper?.wet && d.datetime > past24h
+            (i) => i.diaper?.wet && i.date > past24h
         ).length
-        const diaperSoiledLatestTime = data.findLast((d) => d.diaper?.soiled)
+        const diaperSoiledLatestTime = data.findLast((i) => i.diaper?.soiled)
         const diaperSoiledCountToday = data.filter(
-            (d) => d.diaper?.soiled && d.datetime > sevenAM
+            (i) => i.diaper?.soiled && i.date > today
         ).length
         const diaperSoiledCount24h = data.filter(
-            (d) => d.diaper?.soiled && d.datetime > past24h
+            (i) => i.diaper?.soiled && i.date > past24h
         ).length
 
         // Time to next feeding
@@ -115,9 +117,10 @@ async function loadSheet(key) {
             await db.collection('config').doc('maxFeedingMinutes').get()
         ).data().value
         const secondsSinceLastFeeding =
-            (Date.now() - (feedLatest?.datetime ?? 0)) / 1000
-        const secondsToNextFeeding =
+            (Date.now() - (feedLatest?.date ?? 0)) / 1000
+        const secondsToNextFeeding = Math.floor(
             maxFeedingMinutes * 60 - secondsSinceLastFeeding
+        )
 
         return {
             feedLatest,
@@ -129,7 +132,7 @@ async function loadSheet(key) {
             diaperSoiledLatestTime,
             diaperSoiledCountToday,
             diaperSoiledCount24h,
-            secondsToNextFeeding
+            secondsToNextFeeding,
         }
     } catch (e) {
         console.error(e)
@@ -153,8 +156,48 @@ async function main() {
         )
     }
 
+    // Load data from google sheet
     const data = await loadSheet(token)
-    timersContainer.insertAdjacentHTML('beforeend', `${JSON.stringify(data)}`)
+
+    // Render stats
+    statsContainer.insertAdjacentHTML(
+        'beforeend',
+        `
+        <h1>Time to next feeding</h1>
+        <div class="row">
+            <p>${Math.floor(data.secondsToNextFeeding / 60)}:${
+            data.secondsToNextFeeding % 60
+        }</p>
+        </div>
+        <br>
+        <h1>Feedings</h1>
+        <div class="row">
+            <p>Latest<br><b>${data.feedLatest?.date.toLocaleString()}</b></p>
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday}</b></p>
+            <p>Last 24h<br><b>${data.feedCount24h}</b></p>
+        </div>
+        <br>
+        <h1>Wet diapers</h1>
+        <div class="row">
+            <p>Latest<br><b>${data.diaperWetLatestTime?.date.toLocaleString()}</b></p>
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.diaperWetCountToday
+        }</b></p>
+            <p>Last 24h<br><b>${data.diaperWetCount24h}</b></p>
+        </div>
+        <br>
+        <h1>Soiled diapers</h1>
+        <div class="row">
+            <p>Latest<br><b>${data.diaperSoiledLatestTime?.date.toLocaleString()}</b></p>
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.diaperSoiledCountToday
+        }</b></p>
+            <p>Last 24h<br><b>${data.diaperSoiledCount24h}</b></p>
+        </div>
+    `
+    )
+
+    // Start countdown to next feeding
 }
 
 void main()
