@@ -88,7 +88,10 @@ async function loadSheet(key) {
         data.sort((a, b) => a.date - b.date)
 
         // Stats
-        const today = new Date().setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
+        const now = new Date()
+        const today = now.getHours() >= FIRST_HOUR_OF_DAY
+            ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
+            : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
         const feedLatest5 = data.filter((d) => d.feed).slice(-5).reverse()
         const feedLatest = feedLatest5[0]
