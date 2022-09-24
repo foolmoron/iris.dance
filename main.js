@@ -183,15 +183,6 @@ async function main() {
     }
     const token = await user.getIdToken()
 
-    const formId = await loadFormId()
-    if (formId) {
-        const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
-        document.body.insertAdjacentHTML(
-            'beforeend',
-            `<iframe class="form" src="${url}">Loading…</iframe>`
-        )
-    }
-
     const sheetUrl = await loadSheetUrl()
     if (sheetUrl) {
         sheetsLinkContainer.insertAdjacentHTML(
@@ -261,6 +252,16 @@ async function main() {
         </div>
     `
     )
+
+    // Embed form
+    const formId = await loadFormId()
+    if (formId) {
+        const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
+        document.querySelector('.next-feeding').parentNode.insertAdjacentHTML(
+            'afterend',
+            `<iframe class="form" src="${url}">Loading…</iframe>`
+        )
+    }
 
     // Start countdown to next feeding
     await setupCountdownToFeeding(
