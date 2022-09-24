@@ -13,6 +13,7 @@ const db = firebase.firestore()
 const FIRST_HOUR_OF_DAY = 7
 
 const statsContainer = document.querySelector('.stats')
+const sheetsLinkContainer = document.querySelector('.sheets-link')
 
 async function loadUser() {
     const provider = new firebase.auth.GoogleAuthProvider()
@@ -44,6 +45,16 @@ async function loadUser() {
 async function loadFormId() {
     try {
         return (await db.collection('config').doc('formEmbedId').get()).data()
+            .value
+    } catch (e) {
+        console.error(e)
+        alert(e.message)
+    }
+}
+
+async function loadSheetUrl() {
+    try {
+        return (await db.collection('config').doc('sheetUrl').get()).data()
             .value
     } catch (e) {
         console.error(e)
@@ -89,11 +100,15 @@ async function loadSheet(key) {
 
         // Stats
         const now = new Date()
-        const today = now.getHours() >= FIRST_HOUR_OF_DAY
-            ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
-            : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
+        const today =
+            now.getHours() >= FIRST_HOUR_OF_DAY
+                ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
+                : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
-        const feedLatest5 = data.filter((d) => d.feed).slice(-5).reverse()
+        const feedLatest5 = data
+            .filter((d) => d.feed)
+            .slice(-5)
+            .reverse()
         const feedLatest = feedLatest5[0]
         const feedCountToday = data.filter(
             (i) => i.feed && i.date > today
@@ -174,6 +189,17 @@ async function main() {
         document.body.insertAdjacentHTML(
             'beforeend',
             `<iframe class="form" src="${url}">Loading…</iframe>`
+        )
+    }
+
+    const sheetUrl = await loadSheetUrl()
+    if (sheetUrl) {
+        sheetsLinkContainer.insertAdjacentHTML(
+            'beforeend',
+            `
+        <a target="_blank" href="${sheetUrl}">
+            Full stats in Google Sheet
+        </a>`
         )
     }
 
