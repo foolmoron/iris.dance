@@ -154,13 +154,15 @@ async function loadSheet(key, targetFeedingMinutes) {
 }
 
 function secsToString(secs) {
+    const prefix = secs < 0 ? '+' : ''
+    secs = Math.abs(secs)
     const hours = Math.floor(secs / 3600)
     const minutes = Math.floor((secs % 3600) / 60)
     const seconds = secs % 60
     const str = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
         .toString()
         .padStart(2, '0')}`
-    return str
+    return prefix + str
 }
 
 function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
@@ -207,18 +209,14 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
 
 async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
     const secsSinceLastFeeding = (Date.now() - lastFeedDate) / 1000
-    const secs = Math.floor(
-        Math.max(0, targetFeedingMinutes * 60 - secsSinceLastFeeding)
-    )
+    const secs = Math.floor(targetFeedingMinutes * 60 - secsSinceLastFeeding)
 
     // Tick every sec
-    if (secs > 0) {
-        setTimeout(
-            () =>
-                setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
-            1000
-        )
-    }
+    setTimeout(
+        () =>
+            setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
+        1000
+    )
 
     // Update el
     el.textContent = secsToString(secs)
