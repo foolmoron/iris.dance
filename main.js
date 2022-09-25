@@ -109,11 +109,11 @@ async function loadSheet(key, targetFeedingMinutes) {
                 ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
                 : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
-        const feedLatest5 = data
+        const feedLatest8 = data
             .filter((d) => d.feed)
-            .slice(-5)
+            .slice(-8)
             .reverse()
-        const feedLatest = feedLatest5[0]
+        const feedLatest = feedLatest8[0]
         const feedCountToday = data.filter(
             (i) => i.feed && i.date > today
         ).length
@@ -137,7 +137,7 @@ async function loadSheet(key, targetFeedingMinutes) {
 
         return {
             feedLatest,
-            feedLatest5,
+            feedLatest8,
             feedCountToday,
             feedCount24h,
             diaperWetLatestTime,
@@ -184,11 +184,11 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
             const secsFactor = Math.pow(
                 Math.max(
                     0,
-                    Math.min(1, secsDiff / (targetFeedingMinutes * 60 * 1.5))
+                    Math.min(1, secsDiff / (targetFeedingMinutes * 60 * 1.7))
                 ),
                 1.3
             )
-            const color = `hsl(${lerp(135, 296, secsFactor)}, 100%, 39%)`
+            const color = `hsl(${lerp(296, 135, secsFactor)}, 100%, 39%)`
             const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
                 <div style="padding-left: ${
@@ -277,7 +277,7 @@ async function main() {
             <p>Last few</p>
         </div>
         <div class="row" style="text-align: left;">
-            ${calcLastFewFeeds(data.feedLatest5, targetFeedingMinutes)}
+            ${calcLastFewFeeds(data.feedLatest8, targetFeedingMinutes)}
         </div>
         <br>
         <div class="row">
