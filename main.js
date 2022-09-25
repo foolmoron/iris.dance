@@ -15,6 +15,10 @@ const FIRST_HOUR_OF_DAY = 7
 const statsContainer = document.querySelector('.stats')
 const sheetsLinkContainer = document.querySelector('.sheets-link')
 
+function lerp(a, b, t) {
+    return a + (b - a) * t
+}
+
 async function loadUser() {
     const provider = new firebase.auth.GoogleAuthProvider()
 
@@ -62,7 +66,7 @@ async function loadSheetUrl() {
     }
 }
 
-async function loadSheet(key) {
+async function loadSheet(key, maxFeedingMinutes) {
     try {
         // Fetch
         const sheetId = (
@@ -132,9 +136,6 @@ async function loadSheet(key) {
         ).length
 
         // Time to next feeding
-        const maxFeedingMinutes = (
-            await db.collection('config').doc('maxFeedingMinutes').get()
-        ).data().value
         const secondsSinceLastFeeding =
             (Date.now() - (feedLatest?.date ?? 0)) / 1000
         const secondsToNextFeeding = Math.floor(
@@ -159,14 +160,59 @@ async function loadSheet(key) {
     }
 }
 
-async function setupCountdownToFeeding(el, secs) {
-    secs = Math.max(0, secs)
+function secsToString(secs) {
     const hours = Math.floor(secs / 3600)
     const minutes = Math.floor((secs % 3600) / 60)
     const seconds = secs % 60
-    el.textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
+    const str = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
         .toString()
         .padStart(2, '0')}`
+    return str
+}
+
+function calcLastFewFeeds(feedItems, maxFeedingMinutes) {
+    const lines = []
+    for (let i = 0; i < feedItems.length; i++) {
+        const item = feedItems[i]
+        const details = `${item.date.toLocaleString()} - ${[
+            item.feed.left && 'Left',
+            item.feed.right && 'Right',
+            item.feed.bottle && 'Bottle',
+        ]
+            .filter(Boolean)
+            .join(', ')}`
+        lines.push(details)
+
+        // get difference in time between items
+        if (i < feedItems.length - 1) {
+            const secsDiff = Math.floor(
+                (item.date - feedItems[i + 1].date) / 1000
+            )
+            const secsFactor = Math.pow(
+                Math.max(
+                    0,
+                    Math.min(1, secsDiff / (maxFeedingMinutes * 60 * 1.5))
+                ),
+                1.3
+            )
+            const color = `hsl(${lerp(135, 296, secsFactor)}, 100%, 32%)`
+            const size = `${lerp(0.9, 1.4, secsFactor)}em`
+            const diff = `
+                <div style="font-size: ${size}; text-shadow: 1px 1px 1px #000000b9; color: ${color};">
+                    <div style="display: inline-block; transform: scale(-1, 1); padding-right: calc(160px - 3em);">⤴</div>
+                    ${secsToString(secsDiff)}
+                    <div style="display: inline-block; transform: scale(1, -1);">⤶</div>
+                </div>
+            `
+            lines.push(diff)
+        }
+    }
+    return `<b>${lines.join('')}</b>`
+}
+
+async function setupCountdownToFeeding(el, secs) {
+    secs = Math.max(0, secs)
+    el.textContent = secsToString(secs)
     if (secs > 0) {
         setTimeout(() => setupCountdownToFeeding(el, secs - 1), 1000)
     }
@@ -194,22 +240,14 @@ async function main() {
         )
     }
 
+    const maxFeedingMinutes = (
+        await db.collection('config').doc('maxFeedingMinutes').get()
+    ).data().value
+
     // Load data from google sheet
-    const data = await loadSheet(token)
+    const data = await loadSheet(token, maxFeedingMinutes)
 
     // Render stats
-    const lastFewFeeds = data.feedLatest5
-        .map(
-            (i) =>
-                `${i.date.toLocaleString()} - ${[
-                    i.feed.left && 'Left',
-                    i.feed.right && 'Right',
-                    i.feed.bottle && 'Bottle',
-                ]
-                    .filter(Boolean)
-                    .join(', ')}`
-        )
-        .join('<br>')
     statsContainer.insertAdjacentHTML(
         'beforeend',
         `
@@ -223,7 +261,7 @@ async function main() {
             <p>Last few</p>
         </div>
         <div class="row" style="text-align: left;">
-            <b>${lastFewFeeds}</b>
+            ${calcLastFewFeeds(data.feedLatest5, maxFeedingMinutes)}
         </div>
         <br>
         <div class="row">
