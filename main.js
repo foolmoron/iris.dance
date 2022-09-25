@@ -66,7 +66,7 @@ async function loadSheetUrl() {
     }
 }
 
-async function loadSheet(key, maxFeedingMinutes) {
+async function loadSheet(key, targetFeedingMinutes) {
     try {
         // Fetch
         const sheetId = (
@@ -135,14 +135,8 @@ async function loadSheet(key, maxFeedingMinutes) {
             (i) => i.diaper?.soiled && i.date > past24h
         ).length
 
-        // Time to next feeding
-        const secondsSinceLastFeeding =
-            (Date.now() - (feedLatest?.date ?? 0)) / 1000
-        const secondsToNextFeeding = Math.floor(
-            maxFeedingMinutes * 60 - secondsSinceLastFeeding
-        )
-
         return {
+            feedLatest,
             feedLatest5,
             feedCountToday,
             feedCount24h,
@@ -152,7 +146,6 @@ async function loadSheet(key, maxFeedingMinutes) {
             diaperSoiledLatestTime,
             diaperSoiledCountToday,
             diaperSoiledCount24h,
-            secondsToNextFeeding,
         }
     } catch (e) {
         console.error(e)
@@ -170,7 +163,7 @@ function secsToString(secs) {
     return str
 }
 
-function calcLastFewFeeds(feedItems, maxFeedingMinutes) {
+function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
     const lines = []
     for (let i = 0; i < feedItems.length; i++) {
         const item = feedItems[i]
@@ -191,17 +184,19 @@ function calcLastFewFeeds(feedItems, maxFeedingMinutes) {
             const secsFactor = Math.pow(
                 Math.max(
                     0,
-                    Math.min(1, secsDiff / (maxFeedingMinutes * 60 * 1.5))
+                    Math.min(1, secsDiff / (targetFeedingMinutes * 60 * 1.5))
                 ),
                 1.3
             )
-            const color = `hsl(${lerp(135, 296, secsFactor)}, 100%, 32%)`
-            const size = `${lerp(0.9, 1.4, secsFactor)}em`
+            const color = `hsl(${lerp(135, 296, secsFactor)}, 100%, 39%)`
+            const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
-                <div style="font-size: ${size}; padding-left: calc(160px - 3em); text-shadow: 1px 1px 1px #000000b9; color: ${color};">
-                    <div style="display: inline-block; transform: scale(1, -1) rotate(-0.125turn);">⤺</div>
+                <div style="padding-left: ${
+                    130 - halfWidth
+                }px; color: ${color};">
+                    <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
                     ${secsToString(secsDiff)}
-                    <div style="display: inline-block; transform:  rotate(0.125turn);">⤺</div>
+                    <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
                 </div>
             `
             lines.push(diff)
@@ -210,15 +205,36 @@ function calcLastFewFeeds(feedItems, maxFeedingMinutes) {
     return `<b>${lines.join('')}</b>`
 }
 
-async function setupCountdownToFeeding(el, secs) {
-    secs = Math.max(0, secs)
-    el.textContent = secsToString(secs)
+async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
+    const secsSinceLastFeeding = (Date.now() - lastFeedDate) / 1000
+    const secs = Math.floor(
+        Math.max(0, targetFeedingMinutes * 60 - secsSinceLastFeeding)
+    )
+
+    // Tick every sec
     if (secs > 0) {
-        setTimeout(() => setupCountdownToFeeding(el, secs - 1), 1000)
+        setTimeout(
+            () =>
+                setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
+            1000
+        )
     }
 
-    const level = secs > 60 * 60 ? 'green' : secs > 60 * 15 ? 'orange' : 'red'
-    el.classList.remove('green', 'orange', 'red')
+    // Update el
+    el.textContent = secsToString(secs)
+
+    // Color is based off 40% and 20% of target mins, rounded to upper 5 mins
+    const greenMins = Math.ceil((targetFeedingMinutes * 0.4) / 5) * 5
+    const orangeMins = Math.ceil((targetFeedingMinutes * 0.2) / 5) * 5
+    const level =
+        secs > greenMins * 60
+            ? 'blue'
+            : secs > orangeMins * 60
+            ? 'green'
+            : secs > 0
+            ? 'orange'
+            : 'red'
+    el.classList.remove('blue', 'green', 'orange', 'red')
     el.classList.add(level)
 }
 
@@ -240,12 +256,12 @@ async function main() {
         )
     }
 
-    const maxFeedingMinutes = (
-        await db.collection('config').doc('maxFeedingMinutes').get()
+    const targetFeedingMinutes = (
+        await db.collection('config').doc('targetFeedingMinutes').get()
     ).data().value
 
     // Load data from google sheet
-    const data = await loadSheet(token, maxFeedingMinutes)
+    const data = await loadSheet(token, targetFeedingMinutes)
 
     // Render stats
     statsContainer.insertAdjacentHTML(
@@ -261,7 +277,7 @@ async function main() {
             <p>Last few</p>
         </div>
         <div class="row" style="text-align: left;">
-            ${calcLastFewFeeds(data.feedLatest5, maxFeedingMinutes)}
+            ${calcLastFewFeeds(data.feedLatest5, targetFeedingMinutes)}
         </div>
         <br>
         <div class="row">
@@ -295,16 +311,19 @@ async function main() {
     const formId = await loadFormId()
     if (formId) {
         const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
-        document.querySelector('.next-feeding').parentNode.insertAdjacentHTML(
-            'afterend',
-            `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
-        )
+        document
+            .querySelector('.next-feeding')
+            .parentNode.insertAdjacentHTML(
+                'afterend',
+                `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
+            )
     }
 
     // Start countdown to next feeding
     await setupCountdownToFeeding(
         document.querySelector('.next-feeding'),
-        data.secondsToNextFeeding
+        data.feedLatest.date,
+        targetFeedingMinutes
     )
 }
 
