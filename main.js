@@ -224,16 +224,16 @@ async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
     el.textContent = secsToString(secs)
 
     // Color is based off 40% and 20% of target mins, rounded to upper 5 mins
-    const greenMins = Math.ceil((targetFeedingMinutes * 0.4) / 5) * 5
-    const orangeMins = Math.ceil((targetFeedingMinutes * 0.2) / 5) * 5
+    const mediumMins = Math.ceil((targetFeedingMinutes * 0.4) / 5) * 5
+    const lowMins = Math.ceil((targetFeedingMinutes * 0.2) / 5) * 5
     const level =
-        secs > greenMins * 60
-            ? 'blue'
-            : secs > orangeMins * 60
-            ? 'green'
-            : secs > 0
+        secs > mediumMins * 60
+            ? 'red'
+            : secs > lowMins * 60
             ? 'orange'
-            : 'red'
+            : secs > 0
+            ? 'blue'
+            : 'green'
     el.classList.remove('blue', 'green', 'orange', 'red')
     el.classList.add(level)
 }
