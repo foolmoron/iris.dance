@@ -198,10 +198,10 @@ function calcLastFewFeeds(feedItems, maxFeedingMinutes) {
             const color = `hsl(${lerp(135, 296, secsFactor)}, 100%, 32%)`
             const size = `${lerp(0.9, 1.4, secsFactor)}em`
             const diff = `
-                <div style="font-size: ${size}; text-shadow: 1px 1px 1px #000000b9; color: ${color};">
-                    <div style="display: inline-block; transform: scale(-1, 1); padding-right: calc(160px - 3em);">⤴</div>
+                <div style="font-size: ${size}; padding-left: calc(160px - 3em); text-shadow: 1px 1px 1px #000000b9; color: ${color};">
+                    <div style="display: inline-block; transform: scale(1, -1) rotate(-0.125turn);">⤺</div>
                     ${secsToString(secsDiff)}
-                    <div style="display: inline-block; transform: scale(1, -1);">⤶</div>
+                    <div style="display: inline-block; transform:  rotate(0.125turn);">⤺</div>
                 </div>
             `
             lines.push(diff)
@@ -297,7 +297,7 @@ async function main() {
         const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
         document.querySelector('.next-feeding').parentNode.insertAdjacentHTML(
             'afterend',
-            `<iframe class="form" src="${url}">Loading…</iframe>`
+            `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
         )
     }
 
