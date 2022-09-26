@@ -6,16 +6,21 @@
     <title>Iris Tracker</title>
     <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Luckiest+Guy">
-    <link rel='stylesheet' type='text/css' media='screen' href='main.css?v=13'>
+    <link rel='stylesheet' type='text/css' media='screen' href='main.css?v=14'>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
-    <script defer src='main.js?v=13'></script>
+    <script defer src='main.js?v=14'></script>
 </head>
 <body>
     <div class="stats column">
         <button class="sign-out" onclick="firebase.auth().signOut(); location.reload();">Sign into a different account if you see nothing</button>
+        <h1>Time to next feeding</h1>
+        <div class="row">
+            <p class="next-feeding"></p>
+        </div>
+        <br>
     </div>
     <div class="row">
         <h3 class="sheets-link">

@@ -86,17 +86,17 @@ async function loadSheet(key, targetFeedingMinutes) {
             feed:
                 row[2] || row[3] || row[4]
                     ? {
-                          left: !!row[2],
-                          right: !!row[3],
-                          bottle: !!row[4],
-                      }
+                        left: !!row[2],
+                        right: !!row[3],
+                        bottle: !!row[4],
+                    }
                     : undefined,
             diaper:
                 row[5] || row[6]
                     ? {
-                          wet: !!row[5],
-                          soiled: !!row[6],
-                      }
+                        wet: !!row[5],
+                        soiled: !!row[6],
+                    }
                     : undefined,
             notes: row[7],
         }))
@@ -190,11 +190,10 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
                 ),
                 1.3
             )
-            const color = `hsl(${lerp(296, 135, secsFactor)}, 100%, 39%)`
+            const color = `hsl(${lerp(334, 135, secsFactor)}, 100%, 39%)`
             const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
-                <div style="padding-left: ${
-                    130 - halfWidth
+                <div style="padding-left: ${130 - halfWidth
                 }px; color: ${color};">
                     <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
                     ${secsToString(secsDiff)}
@@ -228,10 +227,10 @@ async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
         secs > mediumMins * 60
             ? 'red'
             : secs > lowMins * 60
-            ? 'orange'
-            : secs > 0
-            ? 'blue'
-            : 'green'
+                ? 'orange'
+                : secs > 0
+                    ? 'blue'
+                    : 'green'
     el.classList.remove('blue', 'green', 'orange', 'red')
     el.classList.add(level)
 }
@@ -243,33 +242,37 @@ async function main() {
     }
     const token = await user.getIdToken()
 
-    const sheetUrl = await loadSheetUrl()
-    if (sheetUrl) {
-        sheetsLinkContainer.insertAdjacentHTML(
-            'beforeend',
-            `
-        <a target="_blank" href="${sheetUrl}">
-            Full stats in Google Sheet
-        </a>`
-        )
-    }
+    const [_1, _2, data] = await Promise.all([
+        // Embed form
+        loadFormId().then(formId => {
+            const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
+            document
+                .querySelector('.next-feeding')
+                .parentNode.insertAdjacentHTML(
+                    'afterend',
+                    `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
+                )
+        }),
 
-    const targetFeedingMinutes = (
-        await db.collection('config').doc('targetFeedingMinutes').get()
-    ).data().value
+        // Embed sheet
+        loadSheetUrl().then((sheetUrl) => {
+            sheetsLinkContainer.insertAdjacentHTML(
+                'beforeend',
+                `
+            <a target="_blank" href="${sheetUrl}">
+                Full stats in Google Sheet
+            </a>`
+            )
+        }),
 
-    // Load data from google sheet
-    const data = await loadSheet(token, targetFeedingMinutes)
+        // Load data from google sheet
+        loadSheet(token, targetFeedingMinutes)
+    ])
 
     // Render stats
     statsContainer.insertAdjacentHTML(
         'beforeend',
         `
-        <h1>Time to next feeding</h1>
-        <div class="row">
-            <p class="next-feeding"></p>
-        </div>
-        <br>
         <h1>Feedings</h1>
         <div class="row">
             <p>Last few</p>
@@ -279,8 +282,7 @@ async function main() {
         </div>
         <br>
         <div class="row">
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.feedCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.feedCount24h}</b></p>
         </div>
@@ -288,8 +290,7 @@ async function main() {
         <h1>Wet diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperWetLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.diaperWetCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperWetCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperWetCount24h}</b></p>
         </div>
@@ -297,25 +298,12 @@ async function main() {
         <h1>Soiled diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperSoiledLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.diaperSoiledCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperSoiledCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperSoiledCount24h}</b></p>
         </div>
     `
     )
-
-    // Embed form
-    const formId = await loadFormId()
-    if (formId) {
-        const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
-        document
-            .querySelector('.next-feeding')
-            .parentNode.insertAdjacentHTML(
-                'afterend',
-                `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
-            )
-    }
 
     // Start countdown to next feeding
     await setupCountdownToFeeding(
