@@ -242,7 +242,7 @@ async function main() {
     }
     const token = await user.getIdToken()
 
-    const [_1, _2, data] = await Promise.all([
+    await Promise.all([
         // Embed form
         loadFormId().then(formId => {
             const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
@@ -264,10 +264,14 @@ async function main() {
             </a>`
             )
         }),
-
-        // Load data from google sheet
-        loadSheet(token, targetFeedingMinutes)
     ])
+
+    const targetFeedingMinutes = (
+        await db.collection('config').doc('targetFeedingMinutes').get()
+    ).data().value
+
+    // Load data from google sheet
+    const data = await loadSheet(token, targetFeedingMinutes)
 
     // Render stats
     statsContainer.insertAdjacentHTML(
