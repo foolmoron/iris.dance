@@ -86,17 +86,17 @@ async function loadSheet(key, targetFeedingMinutes) {
             feed:
                 row[2] || row[3] || row[4]
                     ? {
-                        left: !!row[2],
-                        right: !!row[3],
-                        bottle: !!row[4],
-                    }
+                          left: !!row[2],
+                          right: !!row[3],
+                          bottle: !!row[4],
+                      }
                     : undefined,
             diaper:
                 row[5] || row[6]
                     ? {
-                        wet: !!row[5],
-                        soiled: !!row[6],
-                    }
+                          wet: !!row[5],
+                          soiled: !!row[6],
+                      }
                     : undefined,
             notes: row[7],
         }))
@@ -109,11 +109,8 @@ async function loadSheet(key, targetFeedingMinutes) {
                 ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
                 : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
         const past24h = Date.now() - 24 * 60 * 60 * 1000
-        const feedLatest8 = data
-            .filter((d) => d.feed)
-            .slice(-8)
-            .reverse()
-        const feedLatest = feedLatest8[0]
+        const feedLatestAll = data.filter((d) => d.feed).reverse()
+        const feedLatest = feedLatestAll[0]
         const feedCountToday = data.filter(
             (i) => i.feed && i.date > today
         ).length
@@ -137,7 +134,7 @@ async function loadSheet(key, targetFeedingMinutes) {
 
         return {
             feedLatest,
-            feedLatest8,
+            feedLatestAll,
             feedCountToday,
             feedCount24h,
             diaperWetLatestTime,
@@ -165,9 +162,14 @@ function secsToString(secs) {
     return prefix + str
 }
 
-function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
+function calcLastFewFeeds(
+    feedItems,
+    initialCount,
+    moreCount,
+    targetFeedingMinutes
+) {
     const lines = []
-    for (let i = 0; i < feedItems.length; i++) {
+    for (let i = 0; i < feedItems.length && i < moreCount; i++) {
         const item = feedItems[i]
         const details = `${item.date.toLocaleString()} - ${[
             item.feed.left && 'Left',
@@ -176,7 +178,11 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
         ]
             .filter(Boolean)
             .join(', ')}`
-        lines.push(details)
+        lines.push(
+            `<div class="${
+                i < initialCount ? 'feed-initial' : 'feed-more'
+            }" style="text-align: left;">${details}</div>`
+        )
 
         // get difference in time between items
         if (i < feedItems.length - 1) {
@@ -193,8 +199,9 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
             const color = `hsl(${lerp(334, 135, secsFactor)}, 100%, 39%)`
             const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
-                <div style="padding-left: ${130 - halfWidth
-                }px; color: ${color};">
+                <div class="${
+                    i < initialCount ? 'feed-initial' : 'feed-more'
+                }" style="color: ${color};">
                     <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
                     ${secsToString(secsDiff)}
                     <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
@@ -203,7 +210,14 @@ function calcLastFewFeeds(feedItems, targetFeedingMinutes) {
             lines.push(diff)
         }
     }
-    return `<b>${lines.join('')}</b>`
+    const moreButton = `
+        <button onClick="document.documentElement.style.setProperty('--feed-more-display', 'block'); this.remove();">Show More</button>
+    `
+    return `<b style="text-align: center;">
+        ${lines.join('')}
+        <div style="padding-top: 0.5rem;"></div>
+        ${moreButton}
+    </b>`
 }
 
 async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
@@ -212,8 +226,7 @@ async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
 
     // Tick every sec
     setTimeout(
-        () =>
-            setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
+        () => setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
         1000
     )
 
@@ -227,10 +240,10 @@ async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
         secs > mediumMins * 60
             ? 'red'
             : secs > lowMins * 60
-                ? 'orange'
-                : secs > 0
-                    ? 'blue'
-                    : 'green'
+            ? 'orange'
+            : secs > 0
+            ? 'blue'
+            : 'green'
     el.classList.remove('blue', 'green', 'orange', 'red')
     el.classList.add(level)
 }
@@ -244,7 +257,7 @@ async function main() {
 
     await Promise.all([
         // Embed form
-        loadFormId().then(formId => {
+        loadFormId().then((formId) => {
             const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
             document
                 .querySelector('.next-feeding')
@@ -282,11 +295,12 @@ async function main() {
             <p>Last few</p>
         </div>
         <div class="row" style="text-align: left;">
-            ${calcLastFewFeeds(data.feedLatest8, targetFeedingMinutes)}
+            ${calcLastFewFeeds(data.feedLatestAll, 8, 70, targetFeedingMinutes)}
         </div>
         <br>
         <div class="row">
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.feedCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.feedCount24h}</b></p>
         </div>
@@ -294,7 +308,8 @@ async function main() {
         <h1>Wet diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperWetLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperWetCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.diaperWetCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperWetCount24h}</b></p>
         </div>
@@ -302,7 +317,8 @@ async function main() {
         <h1>Soiled diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperSoiledLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperSoiledCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
+            data.diaperSoiledCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperSoiledCount24h}</b></p>
         </div>
