@@ -24,7 +24,6 @@ button {
 .form {
     width: 700px;
     height: 1400px;
-    display: none;
     transform: scale(1.25);
     transform-origin: top;
     border: none;
