@@ -196,15 +196,18 @@ function calcLastFewFeeds(
                 ),
                 1.3
             )
+            const overkill = secsFactor >= 1
             const color = `hsl(${lerp(334, 135, secsFactor)}, 100%, 39%)`
+            const animDuration = lerp(2.1, 3.0, Math.random())
+            const animDelay = lerp(0.0, 0.8, Math.random())
             const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
-                <div class="${
+                <div class="diff-container ${
                     i < initialCount ? 'feed-initial' : 'feed-more'
-                }" style="color: ${color};">
-                    <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
-                    ${secsToString(secsDiff)}
-                    <div style="display: inline-block; background: ${color}; width: ${halfWidth}px; height: 0.5em;"></div>
+                } ${overkill ? 'overkill' : ''}" style="color: ${overkill ? 'white' : color}; animation-duration: ${animDuration}s; animation-delay: ${animDelay}s;">
+                    <div style="display: inline-block; background: ${overkill ? 'transparent' : color}; width: ${halfWidth}px; height: 0.5em;"></div>
+                    <span>${secsToString(secsDiff)}</span>
+                    <div style="display: inline-block; background: ${overkill ? 'transparent' : color}; width: ${halfWidth}px; height: 0.5em;"></div>
                 </div>
             `
             lines.push(diff)

@@ -24,6 +24,7 @@ button {
 .form {
     width: 700px;
     height: 1400px;
+    display: none;
     transform: scale(1.25);
     transform-origin: top;
     border: none;
@@ -87,6 +88,46 @@ button {
     text-shadow: 1px 1px 4px #34ecffc9;
 }
 
+.diff-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
 .feed-more {
     display: var(--feed-more-display);
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 0%;
+	}
+	50% {
+		background-position: 100% 0%;
+	}
+	100% {
+		background-position: 0% 0%;
+	}
+}
+.overkill {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 1) 0%,
+        rgba(255, 154, 0, 1) 10%,
+        rgba(208, 222, 33, 1) 20%,
+        rgba(79, 220, 74, 1) 30%,
+        rgba(63, 218, 216, 1) 40%,
+        rgba(47, 201, 226, 1) 50%,
+        rgba(28, 127, 238, 1) 60%,
+        rgba(95, 21, 242, 1) 70%,
+        rgba(186, 12, 248, 1) 80%,
+        rgba(251, 7, 217, 1) 90%,
+        rgba(255, 0, 0, 1) 100%
+    );
+	background-size: 160% 100%;
+    border-radius: 5px;
+	animation: gradient 3s cubic-bezier(0.29, 0.14, 0.55, 1.11) infinite;
+    -webkit-text-stroke: 1px black;
 }
