@@ -263,7 +263,7 @@ async function main() {
         loadFormId().then((formId) => {
             const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
             document
-                .querySelector('.next-feeding')
+                .querySelector('.next-feeding.time')
                 .parentNode.insertAdjacentHTML(
                     'afterend',
                     `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
@@ -328,9 +328,15 @@ async function main() {
     `
     )
 
+    // Target time
+    const targetFeedingTime = new Date(
+        new Date(data.feedLatest.date).setMinutes(data.feedLatest.date.getMinutes() + targetFeedingMinutes)
+    )
+    document.querySelector('.next-feeding.time').textContent = targetFeedingTime.toLocaleTimeString()
+
     // Start countdown to next feeding
     await setupCountdownToFeeding(
-        document.querySelector('.next-feeding'),
+        document.querySelector('.next-feeding.countdown'),
         data.feedLatest.date,
         targetFeedingMinutes
     )

@@ -65,24 +65,24 @@ button {
     font-family: 'Luckiest Guy', cursive;
     font-size: 3em;
     font-weight: bold;
-    color: white;
+    color: whitesmoke;
     letter-spacing: 0.05em;
     -webkit-text-stroke: 2px black;
-    text-shadow: 1px 1px 4px #0000009c;
+    text-shadow: 1px 1px 4px dimgray;
 }
-.next-feeding.red {
+.next-feeding.countdown.red {
     color: #ff2643;
     text-shadow: 1px 1px 4px #ff2643c9;
 }
-.next-feeding.orange {
+.next-feeding.countdown.orange {
     color: #ff9335;
     text-shadow: 1px 1px 4px #ff9335c9;
 }
-.next-feeding.green {
+.next-feeding.countdown.green {
     color: #82e600;
     text-shadow: 1px 1px 4px #82e600c9;
 }
-.next-feeding.blue {
+.next-feeding.countdown.blue {
     color: #34ecff;
     text-shadow: 1px 1px 4px #34ecffc9;
 }
