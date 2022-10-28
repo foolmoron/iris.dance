@@ -72,7 +72,7 @@ async function loadSheet(key, targetFeedingMinutes) {
         const sheetId = (
             await db.collection('config').doc('sheetId').get()
         ).data().value
-        const range = encodeURIComponent('A2:Z')
+        const range = encodeURIComponent('A200:Z')
         const key = firebaseConfig.apiKey
         const rows = await fetch(
             `https://content-sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${key}`
