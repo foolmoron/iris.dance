@@ -80,24 +80,14 @@ async function loadSheet(key, targetFeedingMinutes) {
             .then((res) => res.json())
             .then((json) => json.values)
 
-        // Parse
+        // Parse (simplified)
         const data = rows.map((row) => ({
             date: new Date((row[1] || row[0]).replace('/0022 ', '/2022 ')),
-            feed:
-                row[2] || row[3] || row[4]
-                    ? {
-                          left: !!row[2],
-                          right: !!row[3],
-                          bottle: !!row[4],
-                      }
-                    : undefined,
-            diaper:
-                row[5] || row[6]
-                    ? {
-                          wet: !!row[5],
-                          soiled: !!row[6],
-                      }
-                    : undefined,
+            feed: {
+                left: true,
+                right: true,
+            },
+            diaper: undefined,
             notes: row[7],
         }))
         data.sort((a, b) => a.date - b.date)
