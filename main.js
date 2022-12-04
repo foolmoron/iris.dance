@@ -83,10 +83,16 @@ async function loadSheet(key, targetFeedingMinutes) {
         // Parse (simplified)
         const data = rows.map((row) => ({
             date: new Date((row[1] || row[0]).replace('/0022 ', '/2022 ')),
-            feed: {
-                left: true,
-                right: true,
-            },
+            feed: row[2] || row[3] || row[4]
+                ? {
+                    left: !!row[2],
+                    right: !!row[3],
+                    bottle: !!row[4],
+                }
+                : {
+                    left: true,
+                    right: true,
+                },
             diaper: undefined,
             notes: row[7],
         }))
@@ -169,8 +175,7 @@ function calcLastFewFeeds(
             .filter(Boolean)
             .join(', ')}`
         lines.push(
-            `<div class="${
-                i < initialCount ? 'feed-initial' : 'feed-more'
+            `<div class="${i < initialCount ? 'feed-initial' : 'feed-more'
             }" style="text-align: left;">${details}</div>`
         )
 
@@ -192,8 +197,7 @@ function calcLastFewFeeds(
             const animDelay = lerp(0.0, 0.8, Math.random())
             const halfWidth = lerp(10, 130, secsFactor)
             const diff = `
-                <div class="diff-container ${
-                    i < initialCount ? 'feed-initial' : 'feed-more'
+                <div class="diff-container ${i < initialCount ? 'feed-initial' : 'feed-more'
                 } ${overkill ? 'overkill' : ''}" style="color: ${overkill ? 'white' : color}; animation-duration: ${animDuration}s; animation-delay: ${animDelay}s;">
                     <div style="display: inline-block; background: ${overkill ? 'transparent' : color}; width: ${halfWidth}px; height: 0.5em;"></div>
                     <span>${secsToString(secsDiff)}</span>
@@ -233,10 +237,10 @@ async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
         secs > mediumMins * 60
             ? 'red'
             : secs > lowMins * 60
-            ? 'orange'
-            : secs > 0
-            ? 'blue'
-            : 'green'
+                ? 'orange'
+                : secs > 0
+                    ? 'blue'
+                    : 'green'
     el.classList.remove('blue', 'green', 'orange', 'red')
     el.classList.add(level)
 }
@@ -292,8 +296,7 @@ async function main() {
         </div>
         <br>
         <div class="row">
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.feedCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.feedCount24h}</b></p>
         </div>
@@ -301,8 +304,7 @@ async function main() {
         <h1>Wet diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperWetLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.diaperWetCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperWetCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperWetCount24h}</b></p>
         </div>
@@ -310,8 +312,7 @@ async function main() {
         <h1>Soiled diapers</h1>
         <div class="row">
             <p>Latest<br><b>${data.diaperSoiledLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${
-            data.diaperSoiledCountToday
+            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperSoiledCountToday
         }</b></p>
             <p>Last 24h<br><b>${data.diaperSoiledCount24h}</b></p>
         </div>
