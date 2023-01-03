@@ -46,100 +46,56 @@ async function loadUser() {
     await auth.signInWithRedirect(provider)
 }
 
-async function loadFormId() {
+async function loadSheet(sheetId, timezoneOffsetMins, snackLimitMinutes, targetFeedingTimes) {
     try {
-        return (await db.collection('config').doc('formEmbedId').get()).data()
-            .value
-    } catch (e) {
-        console.error(e)
-        alert(e.message)
-    }
-}
-
-async function loadSheetUrl() {
-    try {
-        return (await db.collection('config').doc('sheetUrl').get()).data()
-            .value
-    } catch (e) {
-        console.error(e)
-        alert(e.message)
-    }
-}
-
-async function loadSheet(key, targetFeedingMinutes) {
-    try {
-        // Fetch
-        const sheetId = (
-            await db.collection('config').doc('sheetId').get()
-        ).data().value
-        const range = encodeURIComponent('A200:Z')
         const key = firebaseConfig.apiKey
+        // Fetch
+        const range = encodeURIComponent('A500:Z')
         const rows = await fetch(
             `https://content-sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${key}`
         )
             .then((res) => res.json())
             .then((json) => json.values)
+        rows.reverse()
+
+        // Times
+        const times = targetFeedingTimes.map((t) => {
+            const [hour, minutes] = t.split(':').map((x) => parseInt(x))
+            return hour * 60 + minutes
+        })
+        const earliestMins = times[0].hour * 60 + times[0].minute - snackLimitMinutes
+        const today = new Date()
+        today.setHours(24, 0, 0, 0)
 
         // Parse (simplified)
-        const data = rows.map((row) => ({
-            date: new Date((row[1] || row[0]).replace('/0022 ', '/2022 ')),
-            feed: row[2] || row[3] || row[4]
-                ? {
-                    left: !!row[2],
-                    right: !!row[3],
-                    bottle: !!row[4],
-                }
-                : {
-                    left: true,
-                    right: true,
-                },
-            diaper: undefined,
-            notes: row[7],
-        }))
-        data.sort((a, b) => a.date - b.date)
-
-        // Stats
-        const now = new Date()
-        const today =
-            now.getHours() >= FIRST_HOUR_OF_DAY
-                ? now.setHours(FIRST_HOUR_OF_DAY, 0, 0, 0)
-                : now.setHours(FIRST_HOUR_OF_DAY - 24, 0, 0, 0)
-        const past24h = Date.now() - 24 * 60 * 60 * 1000
-        const feedLatestAll = data.filter((d) => d.feed).reverse()
-        const feedLatest = feedLatestAll[0]
-        const feedCountToday = data.filter(
-            (i) => i.feed && i.date > today
-        ).length
-        const feedCount24h = data.filter(
-            (i) => i.feed && i.date > past24h
-        ).length
-        const diaperWetLatestTime = data.findLast((i) => i.diaper?.wet)
-        const diaperWetCountToday = data.filter(
-            (i) => i.diaper?.wet && i.date > today
-        ).length
-        const diaperWetCount24h = data.filter(
-            (i) => i.diaper?.wet && i.date > past24h
-        ).length
-        const diaperSoiledLatestTime = data.findLast((i) => i.diaper?.soiled)
-        const diaperSoiledCountToday = data.filter(
-            (i) => i.diaper?.soiled && i.date > today
-        ).length
-        const diaperSoiledCount24h = data.filter(
-            (i) => i.diaper?.soiled && i.date > past24h
-        ).length
-
-        return {
-            feedLatest,
-            feedLatestAll,
-            feedCountToday,
-            feedCount24h,
-            diaperWetLatestTime,
-            diaperWetCountToday,
-            diaperWetCount24h,
-            diaperSoiledLatestTime,
-            diaperSoiledCountToday,
-            diaperSoiledCount24h,
-        }
+        const dates = rows.map((row) => {
+            const d = new Date((row[1] || row[0]).replace('/0022 ', '/2022 '))
+            const mins = d.getHours() * 60 + d.getMinutes()
+            const prevDayAdjustment = mins < earliestMins ? -24 : 0
+            const dateStamp = d.setHours(prevDayAdjustment, 0, 0, 0)
+            const foundIndex = times.findIndex((t) => (t - snackLimitMinutes) > mins)
+            const bucket = ((foundIndex >= 0 ? foundIndex : times.length) - 1 + times.length) % times.length
+            const diff1 = mins - times[bucket]
+            const diff2 = (mins + 24 * 60) - times[bucket]
+            const diff = Math.abs(diff1) < Math.abs(diff2) ? diff1 : diff2
+            return {
+                dateStamp,
+                bucket,
+                mins,
+                diff: Math.abs(diff),
+                pos: diff >= 0,
+            }
+        })
+        const datesByDayAndBucket = dates.reduce((acc, d) => {
+            const key = d.dateStamp
+            if (!acc.has(key)) {
+                acc.set(key, times.map(() => []))
+            }
+            acc.get(key)[d.bucket].unshift(d)
+            acc.get(key)[d.bucket].sort((a, b) => a.diff - b.diff)
+            return acc
+        }, new Map([[today.getTime(), times.map(() => [])]]))
+        return datesByDayAndBucket
     } catch (e) {
         console.error(e)
         alert(e.message)
@@ -149,8 +105,8 @@ async function loadSheet(key, targetFeedingMinutes) {
 function secsToString(secs) {
     const prefix = secs < 0 ? '+' : ''
     secs = Math.abs(secs)
-    const hours = Math.floor(secs / 3600)
-    const minutes = Math.floor((secs % 3600) / 60)
+    const hours = Math.trunc(secs / 3600)
+    const minutes = Math.trunc((secs % 3600) / 60)
     const seconds = secs % 60
     const str = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
         .toString()
@@ -158,85 +114,17 @@ function secsToString(secs) {
     return prefix + str
 }
 
-function calcLastFewFeeds(
-    feedItems,
-    initialCount,
-    moreCount,
-    targetFeedingMinutes
-) {
-    const lines = []
-    for (let i = 0; i < feedItems.length && i < moreCount; i++) {
-        const item = feedItems[i]
-        const details = `${item.date.toLocaleString()} - ${[
-            item.feed.left && 'Left',
-            item.feed.right && 'Right',
-            item.feed.bottle && 'Bottle',
-        ]
-            .filter(Boolean)
-            .join(', ')}`
-        lines.push(
-            `<div class="${i < initialCount ? 'feed-initial' : 'feed-more'
-            }" style="text-align: left;">${details}</div>`
-        )
-
-        // get difference in time between items
-        if (i < feedItems.length - 1) {
-            const secsDiff = Math.floor(
-                (item.date - feedItems[i + 1].date) / 1000
-            )
-            const secsFactor = Math.pow(
-                Math.max(
-                    0,
-                    Math.min(1, secsDiff / (targetFeedingMinutes * 60 * 1.7))
-                ),
-                1.3
-            )
-            const overkill = secsFactor >= 1
-            const color = `hsl(${lerp(334, 135, secsFactor)}, 100%, 39%)`
-            const animDuration = lerp(2.1, 3.0, Math.random())
-            const animDelay = lerp(0.0, 0.8, Math.random())
-            const halfWidth = lerp(10, 130, secsFactor)
-            const diff = `
-                <div class="diff-container ${i < initialCount ? 'feed-initial' : 'feed-more'
-                } ${overkill ? 'overkill' : ''}" style="color: ${overkill ? 'white' : color}; animation-duration: ${animDuration}s; animation-delay: ${animDelay}s;">
-                    <div style="display: inline-block; background: ${overkill ? 'transparent' : color}; width: ${halfWidth}px; height: 0.5em;"></div>
-                    <span>${secsToString(secsDiff)}</span>
-                    <div style="display: inline-block; background: ${overkill ? 'transparent' : color}; width: ${halfWidth}px; height: 0.5em;"></div>
-                </div>
-            `
-            lines.push(diff)
-        }
-    }
-    const moreButton = `
-        <button onClick="document.documentElement.style.setProperty('--feed-more-display', 'block'); this.remove();">Show More</button>
-    `
-    return `<b style="text-align: center;">
-        ${lines.join('')}
-        <div style="padding-top: 0.5rem;"></div>
-        ${moreButton}
-    </b>`
-}
-
-async function setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes) {
-    const secsSinceLastFeeding = (Date.now() - lastFeedDate) / 1000
-    const secs = Math.floor(targetFeedingMinutes * 60 - secsSinceLastFeeding)
-
-    // Tick every sec
-    setTimeout(
-        () => setupCountdownToFeeding(el, lastFeedDate, targetFeedingMinutes),
-        1000
-    )
+function setupCountdownToFeeding(el, snackLimitMinutes, wiggleRoomMinutes, nextFeedingTime) {
+    const secs = Math.trunc((nextFeedingTime.getTime() - Date.now()) / 1000)
 
     // Update el
     el.textContent = secsToString(secs)
 
-    // Color is based off 40% and 20% of target mins, rounded to upper 5 mins
-    const mediumMins = Math.ceil((targetFeedingMinutes * 0.4) / 5) * 5
-    const lowMins = Math.ceil((targetFeedingMinutes * 0.2) / 5) * 5
+    // Red below snack limit, orange below wiggle, blue within wiggle, green after
     const level =
-        secs > mediumMins * 60
+        secs > snackLimitMinutes * 60
             ? 'red'
-            : secs > lowMins * 60
+            : secs > wiggleRoomMinutes * 60
                 ? 'orange'
                 : secs > 0
                     ? 'blue'
@@ -251,86 +139,114 @@ async function main() {
         return
     }
     const token = await user.getIdToken()
+    const timezoneOffsetMins = new Date().getTimezoneOffset()
 
-    await Promise.all([
+    const [
+        _formEmbedId,
+        sheetId,
+        targetFeedingTimes,
+        snackLimitMinutes,
+        wiggleRoomMinutes,
+    ] = await Promise.all([
         // Embed form
-        loadFormId().then((formId) => {
-            const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
-            document
-                .querySelector('.next-feeding.time')
-                .parentNode.insertAdjacentHTML(
-                    'afterend',
-                    `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
-                )
-        }),
+        db.collection('config').doc('formEmbedId').get()
+            .then(item => item.data().value)
+            .then((formId) => {
+                const url = `https://docs.google.com/forms/d/e/${formId}/viewform?embedded=true`
+                document
+                    .querySelector('.next-feeding.time')
+                    .parentNode.insertAdjacentHTML(
+                        'afterend',
+                        `<iframe class="form" src="${url}" scrolling="no">Loading…</iframe>`
+                    )
+                return formId
+            }),
 
         // Embed sheet
-        loadSheetUrl().then((sheetUrl) => {
-            sheetsLinkContainer.insertAdjacentHTML(
-                'beforeend',
-                `
-            <a target="_blank" href="${sheetUrl}">
-                Full stats in Google Sheet
-            </a>`
-            )
-        }),
+        db.collection('config').doc('sheetId').get()
+            .then(item => item.data().value)
+            .then((sheetId) => {
+                sheetsLinkContainer.insertAdjacentHTML(
+                    'beforeend',
+                    `<a target="_blank" href="https://docs.google.com/spreadsheets/d/${sheetId}/edit?usp=sharing">
+                        Full stats in Google Sheet
+                    </a>`
+                )
+                return sheetId
+            }),
+
+        db.collection('config').doc('targetFeedingTimes').get()
+            .then(item => item.data().value),
+
+        db.collection('config').doc('snackLimitMinutes').get()
+            .then(item => item.data().value),
+
+        db.collection('config').doc('wiggleRoomMinutes').get()
+            .then(item => item.data().value)
     ])
 
-    const targetFeedingMinutes = (
-        await db.collection('config').doc('targetFeedingMinutes').get()
-    ).data().value
-
     // Load data from google sheet
-    const data = await loadSheet(token, targetFeedingMinutes)
+    const data = await loadSheet(sheetId, timezoneOffsetMins, snackLimitMinutes, targetFeedingTimes)
 
     // Render stats
+    const entries = [...data.entries()].slice(0, 28)
     statsContainer.insertAdjacentHTML(
         'beforeend',
         `
         <h1>Feedings</h1>
-        <div class="row">
-            <p>Last few</p>
-        </div>
-        <div class="row" style="text-align: left;">
-            ${calcLastFewFeeds(data.feedLatestAll, 8, 70, targetFeedingMinutes)}
-        </div>
-        <br>
-        <div class="row">
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.feedCountToday
-        }</b></p>
-            <p>Last 24h<br><b>${data.feedCount24h}</b></p>
-        </div>
-        <br>
-        <h1>Wet diapers</h1>
-        <div class="row">
-            <p>Latest<br><b>${data.diaperWetLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperWetCountToday
-        }</b></p>
-            <p>Last 24h<br><b>${data.diaperWetCount24h}</b></p>
-        </div>
-        <br>
-        <h1>Soiled diapers</h1>
-        <div class="row">
-            <p>Latest<br><b>${data.diaperSoiledLatestTime?.date.toLocaleString()}</b></p>
-            <p>Today (since ${FIRST_HOUR_OF_DAY}am)<br><b>${data.diaperSoiledCountToday
-        }</b></p>
-            <p>Last 24h<br><b>${data.diaperSoiledCount24h}</b></p>
-        </div>
-    `
-    )
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    ${targetFeedingTimes.map(t => {
+                        const [hour, minutes] = t.split(':').map((x) => parseInt(x))
+                        return `<th>${new Date((hour * 60 + minutes + timezoneOffsetMins) * 60 * 1000).toLocaleTimeString('default', { hour:'numeric', minute:'2-digit' })}</th>`
+                    }).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${entries.map(([dateStamp, buckets], i) => `
+                    <tr class="${i < 7 ? 'feed-initial' : 'feed-more'}">
+                        <td><b>${new Date(dateStamp).toLocaleDateString('default', { month: 'short', day:'numeric' })}</b></td>
+                        ${buckets.map((b) => `
+                            <td>
+                            ${b.map((d) => `
+                                <div class="feed-time">${new Date((d.mins + timezoneOffsetMins) * 60 * 1000).toLocaleTimeString('default', { hour:'numeric', minute:'2-digit' })}<span>(${d.pos ? '+' : '-'}${Math.trunc(d.diff / 60)}:${(d.diff % 60).toString().padStart(2, '0')})</span></div>
+                            `).join('')}
+                            </td>
+                        `).join('')}
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <button onClick="document.documentElement.style.setProperty('--feed-more-display', 'table-row'); this.remove();">Show More</button>
+    `)
 
-    // Target time
-    const targetFeedingTime = new Date(
-        new Date(data.feedLatest.date).setMinutes(data.feedLatest.date.getMinutes() + targetFeedingMinutes)
-    )
-    document.querySelector('.next-feeding.time').textContent = targetFeedingTime.toLocaleTimeString()
+    // Next time
+    let potentialNextFeedingTime, nextFeedingTime
+    for (const [dateStamp, buckets] of data.entries()) {
+        for (let b = buckets.length - 1; b >= 0; b--) {
+            const bucket = buckets[b]
+            if (bucket.length === 0) {
+                potentialNextFeedingTime = new Date(new Date(dateStamp).toLocaleDateString() + ' ' + targetFeedingTimes[b])
+            } else {
+                nextFeedingTime = potentialNextFeedingTime
+                break
+            }
+        }
+        if (nextFeedingTime) {
+            break
+        }
+    }
+    document.querySelector('.next-feeding.time').textContent = nextFeedingTime.toLocaleTimeString()
 
     // Start countdown to next feeding
-    await setupCountdownToFeeding(
+    setInterval(() => setupCountdownToFeeding(
         document.querySelector('.next-feeding.countdown'),
-        data.feedLatest.date,
-        targetFeedingMinutes
-    )
+        snackLimitMinutes,
+        wiggleRoomMinutes,
+        nextFeedingTime
+    ), 1000)
 }
 
 void main()

@@ -52,15 +52,6 @@ button {
     margin: 0;
 }
 
-.stats h1 {
-    font-size: 1.8em;
-    margin: 0.3em 0;
-}
-
-.stats b {
-    font-size: 1.3em;
-}
-
 .next-feeding {
     font-family: 'Luckiest Guy', cursive;
     font-size: 3em;
@@ -129,4 +120,30 @@ button {
     border-radius: 5px;
 	animation: gradient 3s cubic-bezier(0.29, 0.14, 0.55, 1.11) infinite;
     -webkit-text-stroke: 1px black;
+}
+
+table {
+    border-collapse: collapse;
+    width: 80%;
+    max-width: 800px;
+    text-align: left;
+    margin: 0.5rem 0 !important;
+}
+tr {
+    border-bottom: 0.1rem solid black;
+}
+td, th {
+    padding: 0.2rem 0.7rem 0.2rem 0.3rem;
+    border-right: 0.1rem dotted black;
+}
+td:last-child, th:last-child {
+    border-right: none;
+}
+
+.feed-time {
+    display: flex;
+    margin: 0.25rem 0;
+}
+.feed-time > span {
+    margin: 0 auto;
 }
