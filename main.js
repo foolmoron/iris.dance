@@ -63,7 +63,7 @@ async function loadSheet(sheetId, timezoneOffsetMins, snackLimitMinutes, targetF
             const [hour, minutes] = t.split(':').map((x) => parseInt(x))
             return hour * 60 + minutes
         })
-        const earliestMins = times[0].hour * 60 + times[0].minute - snackLimitMinutes
+        const earliestMins = times[0] - snackLimitMinutes
         const today = new Date()
         today.setHours(24, 0, 0, 0)
 
@@ -84,6 +84,7 @@ async function loadSheet(sheetId, timezoneOffsetMins, snackLimitMinutes, targetF
                 mins,
                 diff: Math.abs(diff),
                 pos: diff >= 0,
+                notes: row[7],
             }
         })
         const datesByDayAndBucket = dates.reduce((acc, d) => {
@@ -211,7 +212,7 @@ async function main() {
                         ${buckets.map((b) => `
                             <td>
                             ${b.map((d) => `
-                                <div class="feed-time">${new Date((d.mins + timezoneOffsetMins) * 60 * 1000).toLocaleTimeString('default', { hour:'numeric', minute:'2-digit' })}<span>(${d.pos ? '+' : '-'}${Math.trunc(d.diff / 60)}:${(d.diff % 60).toString().padStart(2, '0')})</span></div>
+                                <div class="feed-time">${new Date((d.mins + timezoneOffsetMins) * 60 * 1000).toLocaleTimeString('default', { hour:'numeric', minute:'2-digit' })}<span class="extra">${d.notes ? `"${d.notes}"` : ((d.pos ? '+' : '-') + Math.trunc(d.diff / 60) + ':' + (d.diff % 60).toString().padStart(2, '0'))}</span></div>
                             `).join('')}
                             </td>
                         `).join('')}

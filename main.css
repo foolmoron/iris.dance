@@ -142,8 +142,15 @@ td:last-child, th:last-child {
 
 .feed-time {
     display: flex;
+    align-items: center;
     margin: 0.25rem 0;
 }
 .feed-time > span {
     margin: 0 auto;
+}
+
+.extra {
+    font-size: 0.9em;
+    max-width: 120px;
+    text-align: center;
 }
